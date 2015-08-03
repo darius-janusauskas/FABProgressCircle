@@ -24,7 +24,7 @@ import android.animation.ValueAnimator;
 public class ArcAnimationFactory {
 
   public enum Type {
-    ROTATE, GROW, SHRINK, COMPLETE
+    ROTATE, GROW, SHRINK, COMPLETE_SHRINK, COMPLETE_GROW
   }
 
   public static final int MINIMUM_SWEEP_ANGLE = 20;
@@ -50,8 +50,11 @@ public class ArcAnimationFactory {
       case SHRINK:
         arcAnimation = new ShrinkArcAnimation(updateListener, animatorListener);
         break;
+      case COMPLETE_GROW:
+        arcAnimation = new CompleteGrowArcAnimation(updateListener, animatorListener);
+        break;
       default:
-        arcAnimation = new CompleteArcAnimation(updateListener, animatorListener);
+        arcAnimation = new CompleteShrinkArcAnimation(updateListener, animatorListener);
     }
 
     return arcAnimation.getAnimator();

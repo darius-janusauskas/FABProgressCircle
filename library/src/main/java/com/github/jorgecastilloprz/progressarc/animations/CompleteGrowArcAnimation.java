@@ -22,17 +22,17 @@ import android.view.animation.DecelerateInterpolator;
 /**
  * @author Jorge Castillo Pérez
  */
-public class CompleteArcAnimation implements ArcAnimation {
+public class CompleteGrowArcAnimation implements ArcAnimation {
 
   private ValueAnimator completeAnim;
 
-  CompleteArcAnimation(ValueAnimator.AnimatorUpdateListener updateListener,
-      Animator.AnimatorListener listener) {
+  CompleteGrowArcAnimation(ValueAnimator.AnimatorUpdateListener updateListener,
+                           Animator.AnimatorListener listener) {
 
     completeAnim = ValueAnimator.ofFloat(ArcAnimationFactory.MAXIMUM_SWEEP_ANGLE,
-        ArcAnimationFactory.MINIMUM_SWEEP_ANGLE);
+        360);
     completeAnim.setInterpolator(new DecelerateInterpolator());
-    completeAnim.setDuration(ArcAnimationFactory.COMPLETE_ANIM_DURATION);
+    completeAnim.setDuration(ArcAnimationFactory.SWEEP_ANIM_DURATION);
     completeAnim.addUpdateListener(updateListener);
     completeAnim.addListener(listener);
   }

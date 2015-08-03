@@ -26,6 +26,7 @@ import android.graphics.RectF;
 import android.graphics.drawable.Animatable;
 import android.graphics.drawable.Drawable;
 import android.view.animation.DecelerateInterpolator;
+
 import com.github.jorgecastilloprz.progressarc.animations.ArcAnimationFactory;
 
 import static com.github.jorgecastilloprz.utils.AnimationUtils.getAnimatedFraction;
@@ -48,7 +49,8 @@ final class ProgressArcDrawable extends Drawable implements Animatable {
   private ValueAnimator rotateAnim;
   private ValueAnimator growAnim;
   private ValueAnimator shrinkAnim;
-  private ValueAnimator completeAnim;
+  private ValueAnimator shrinkCompleteAnim;
+  private ValueAnimator growCompleteAnim;
 
   private boolean animationPlaying;
   private boolean growing;
@@ -87,23 +89,26 @@ final class ProgressArcDrawable extends Drawable implements Animatable {
     setupRotateAnimation();
     setupGrowAnimation();
     setupShrinkAnimation();
-    setupCompleteAnimation();
+    setupShrinkCompleteAnimation();
+    setupGrowCompleteAnimation();
   }
 
   private void setupRotateAnimation() {
     rotateAnim = animationFactory.buildAnimation(ArcAnimationFactory.Type.ROTATE,
-        new ValueAnimator.AnimatorUpdateListener() {
-          @Override public void onAnimationUpdate(ValueAnimator animation) {
-            float angle = getAnimatedFraction(animation) * 360f;
-            updateCurrentRotationAngle(angle);
-          }
-        }, null);
+            new ValueAnimator.AnimatorUpdateListener() {
+              @Override
+              public void onAnimationUpdate(ValueAnimator animation) {
+                float angle = getAnimatedFraction(animation) * 360f;
+                updateCurrentRotationAngle(angle);
+              }
+            }, null);
   }
 
   private void setupGrowAnimation() {
     growAnim = animationFactory.buildAnimation(ArcAnimationFactory.Type.GROW,
-        new ValueAnimator.AnimatorUpdateListener() {
-          @Override public void onAnimationUpdate(ValueAnimator animation) {
+            new ValueAnimator.AnimatorUpdateListener() {
+              @Override
+              public void onAnimationUpdate(ValueAnimator animation) {
             float animatedFraction = getAnimatedFraction(animation);
             float angle = minSweepAngle + animatedFraction * (maxSweepAngle - minSweepAngle);
             updateCurrentSweepAngle(angle);
@@ -118,8 +123,14 @@ final class ProgressArcDrawable extends Drawable implements Animatable {
 
           @Override public void onAnimationEnd(Animator animation) {
             if (!cancelled) {
-              setShrinking();
-              shrinkAnim.start();
+
+              if (completeAnimOnNextCycle) {
+                completeAnimOnNextCycle = false;
+                growCompleteAnim.start();
+              } else {
+                setShrinking();
+                shrinkAnim.start();
+              }
             }
           }
 
@@ -152,7 +163,7 @@ final class ProgressArcDrawable extends Drawable implements Animatable {
               setGrowing();
               if (completeAnimOnNextCycle) {
                 completeAnimOnNextCycle = false;
-                completeAnim.start();
+                shrinkCompleteAnim.start();
               } else {
                 growAnim.start();
               }
@@ -168,8 +179,8 @@ final class ProgressArcDrawable extends Drawable implements Animatable {
         });
   }
 
-  private void setupCompleteAnimation() {
-    completeAnim = animationFactory.buildAnimation(ArcAnimationFactory.Type.COMPLETE,
+  private void setupShrinkCompleteAnimation() {
+    shrinkCompleteAnim = animationFactory.buildAnimation(ArcAnimationFactory.Type.COMPLETE_SHRINK,
         new ValueAnimator.AnimatorUpdateListener() {
 
           @Override public void onAnimationUpdate(ValueAnimator animation) {
@@ -185,6 +196,7 @@ final class ProgressArcDrawable extends Drawable implements Animatable {
             growing = true;
             rotateAnim.setInterpolator(new DecelerateInterpolator());
             rotateAnim.setDuration(ArcAnimationFactory.COMPLETE_ROTATE_DURATION);
+
           }
 
           @Override public void onAnimationEnd(Animator animation) {
@@ -192,7 +204,7 @@ final class ProgressArcDrawable extends Drawable implements Animatable {
               stop();
             }
 
-            completeAnim.removeListener(this);
+            shrinkCompleteAnim.removeListener(this);
             internalListener.onArcAnimationComplete();
           }
 
@@ -203,6 +215,43 @@ final class ProgressArcDrawable extends Drawable implements Animatable {
           @Override public void onAnimationRepeat(Animator animation) {
           }
         });
+  }
+
+  private void setupGrowCompleteAnimation() {
+    growCompleteAnim = animationFactory.buildAnimation(ArcAnimationFactory.Type.COMPLETE_GROW,
+            new ValueAnimator.AnimatorUpdateListener() {
+
+              @Override public void onAnimationUpdate(ValueAnimator animation) {
+                float animatedFraction = getAnimatedFraction(animation);
+                float angle = maxSweepAngle + animatedFraction * (360 - maxSweepAngle);
+                updateCurrentSweepAngle(angle);
+              }
+            }, new Animator.AnimatorListener() {
+              boolean cancelled = false;
+
+              @Override public void onAnimationStart(Animator animation) {
+                cancelled = false;
+                growing = true;
+                //rotateAnim.setInterpolator(new DecelerateInterpolator());
+                //rotateAnim.setDuration(ArcAnimationFactory.COMPLETE_ROTATE_DURATION);
+              }
+
+              @Override public void onAnimationEnd(Animator animation) {
+                if (!cancelled) {
+                  stop();
+                }
+
+                growCompleteAnim.removeListener(this);
+                internalListener.onArcAnimationComplete();
+              }
+
+              @Override public void onAnimationCancel(Animator animation) {
+                cancelled = true;
+              }
+
+              @Override public void onAnimationRepeat(Animator animation) {
+              }
+            });
   }
 
   @Override public void draw(Canvas canvas) {
@@ -243,7 +292,7 @@ final class ProgressArcDrawable extends Drawable implements Animatable {
 
   private void setShrinking() {
     growing = false;
-    currentRotationAngleOffset = currentRotationAngleOffset + (360 - maxSweepAngle);
+    currentRotationAngleOffset += (360 - maxSweepAngle);
   }
 
   @Override public void start() {
@@ -264,11 +313,12 @@ final class ProgressArcDrawable extends Drawable implements Animatable {
     rotateAnim.cancel();
     growAnim.cancel();
     shrinkAnim.cancel();
-    completeAnim.cancel();
+    shrinkCompleteAnim.cancel();
+    growCompleteAnim.cancel();
   }
 
   void requestCompleteAnimation(final ArcListener internalListener) {
-    if (!isRunning() || completeAnim.isRunning()) {
+    if (!isRunning() || shrinkCompleteAnim.isRunning()) {
       return;
     }
 
